@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ 
+<mapper namespace="dev.mvc.items.ItemsDAOInter"> 
+<!--   <insert id="create" parameterType="dev.mvc.items.ItemsVO">
+    INSERT INTO items(itemsno, adminno, category_no, item_name, content, password, search_word,
+                                     file1, file1saved, thumb1, size1, cdate)
+    VALUES(items_seq.nextval, #{adminno}, #{category_no}, #{item_name}, #{content}, #{password}, #{search_word},
+                #{file1}, #{file1saved}, #{thumb1}, #{size1}, sysdate)
+  </insert> -->
+  
+    <!-- 연속 입력 지원 등록: sequence가 SQL 실행전에 생성되어 ItemsVO에 저장 후 사용 -->
+  <insert id="create" parameterType="dev.mvc.items.ItemsVO">
+    <selectKey keyProperty="itemsno" resultType="int" order="BEFORE">
+      SELECT items_seq.nextval FROM dual
+    </selectKey>
+    
+    INSERT INTO items(itemsno, adminno, category_no, item_name, content, password, search_word,
+                                     file1, file1saved, thumb1, size1, cdate)
+    VALUES(#{itemsno}, #{adminno}, #{category_no}, #{item_name}, #{content}, #{password}, #{search_word},
+                #{file1}, #{file1saved}, #{thumb1}, #{size1}, sysdate)
+  </insert>
+  
+    <!-- 일반적인 조회 -->
+  <select id="read" resultType="dev.mvc.items.ItemsVO" parameterType="int">
+    SELECT itemsno, adminno, category_no, item_name, content, recom_cnt, view_cnt, comment_cnt, password, search_word, cdate,
+                              file1, file1saved, thumb1, size1, item_price, discount, total_price, item_point, item_cnt
+    FROM items
+    WHERE itemsno = #{itemsno}
+  </select>
+
+  <!-- 상품 정보 변경 -->
+  <update id="product_update" parameterType="dev.mvc.items.ItemsVO">
+    UPDATE items
+    SET item_price=#{item_price}, discount=#{discount}, total_price=#{total_price}, item_point=#{item_point}, item_cnt=#{item_cnt}
+    WHERE itemsno = #{itemsno}
+  </update> 
+  
+    <select id="list_by_category_no" resultType="dev.mvc.items.ItemsVO" parameterType="int">
+    SELECT itemsno, adminno, category_no, item_name, content, recom_cnt, view_cnt, comment_cnt, password, search_word, cdate,
+                              file1, file1saved, thumb1, size1, item_price, discount, total_price, item_point, item_cnt
+    FROM items
+    WHERE category_no = #{category_no}
+    ORDER BY itemsno ASC
+  </select> 
+  
+    <!-- 카테고리별 검색 목록 -->
+  <select id="list_by_categoryno_search" resultType="dev.mvc.items.ItemsVO"  parameterType="HashMap">
+    SELECT itemsno, adminno, category_no, item_name, content, recom_cnt, view_cnt, comment_cnt, cdate,
+            file1, file1saved, thumb1, size1, item_price, discount, total_price, item_point
+    FROM items
+    <choose>
+      <when test="search_word == null or search_word == ''"> <!-- 검색하지 않는 경우 -->
+        WHERE category_no=#{category_no}
+      </when>
+      <otherwise> <!-- 검색하는 경우 -->
+        WHERE category_no=#{category_no} AND (item_name LIKE '%' || #{search_word} || '%' 
+                                                                      OR content LIKE '%' || #{search_word} || '%' 
+                                                                      OR search_word LIKE '%' || #{search_word} || '%')
+      </otherwise>
+    </choose>
+    ORDER BY itemsno ASC   
+  </select>
+   
+  <!-- 카테고리별 검색 레코드 갯수 -->
+  <select id="search_count" resultType="int" parameterType="HashMap">
+    SELECT COUNT(*) as cnt
+    FROM items
+    <choose>
+      <when test="search_word == null or search_word == ''"> <!-- 검색하지 않는 경우의 레코드 갯수 -->
+        WHERE category_no=#{category_no}
+      </when>
+      <otherwise> <!-- 검색하는 경우의 레코드 갯수 -->
+        WHERE category_no=#{category_no} AND (item_name LIKE '%' || #{search_word} || '%' 
+                                                                        OR content LIKE '%' || #{search_word} || '%' 
+                                                                        OR search_word LIKE '%' || #{search_word} || '%')
+      </otherwise>
+    </choose>
+  </select>    
+  
+    <!-- 카테고리별 검색 목록 + 페이징 + 메인 이미지 -->   
+  <select id="list_by_categoryno_search_paging" 
+             resultType="dev.mvc.items.ItemsVO" parameterType="HashMap">
+   SELECT itemsno, adminno, category_no, item_name, content, recom_cnt, view_cnt, comment_cnt, cdate,
+            file1, file1saved, thumb1, size1, item_price, discount, total_price, item_point, r
+   FROM (
+              SELECT itemsno, adminno, category_no, item_name, content, recom_cnt, view_cnt, comment_cnt, cdate,
+            file1, file1saved, thumb1, size1, item_price, discount, total_price, item_point, rownum as r
+              FROM (
+                        SELECT itemsno, adminno, category_no, item_name, content, recom_cnt, view_cnt, comment_cnt, cdate,
+            file1, file1saved, thumb1, size1, item_price, discount, total_price, item_point
+                        FROM items
+                        <choose>
+                          <when test="search_word == null or search_word == ''"> <!-- 검색하지 않는 경우 -->
+                             WHERE category_no=#{category_no}
+                          </when>
+                          <otherwise>
+                            WHERE category_no=#{category_no} AND (item_name LIKE '%' || #{search_word} || '%'  <!-- ||: 결합, %첫눈% -->
+                                                                                            OR content LIKE '%' || #{search_word} || '%' 
+                                                                                            OR search_word LIKE '%' || #{search_word} || '%')
+                          </otherwise>
+                        </choose>
+                        ORDER BY itemsno ASC
+               )
+    )
+    WHERE <![CDATA[ r >= #{start_num} AND r <= #{end_num} ]]>
+     
+<!--  1 page: WHERE r >= 1 AND r <= 10; 
+       2 page: WHERE r >= 11 AND r <= 20;
+       3 page: WHERE r >= 21 AND r <= 30; -->
+     
+  </select>   
+  
+    <!-- 텍스트 수정 -->
+  <update id="update_text" parameterType="dev.mvc.items.ItemsVO">
+    UPDATE items
+    SET item_name=#{item_name}, content=#{content},  search_word=#{search_word}, 
+          item_price=#{item_price}, discount=#{discount}, total_price=#{total_price}, item_point=#{item_point}, item_cnt=#{item_cnt}
+    WHERE itemsno = #{itemsno}
+  </update>
+  
+    <!-- 패스워드 검사 -->
+  <select id="password_check" resultType="int" parameterType="HashMap">
+    SELECT COUNT(*) as cnt 
+    FROM items
+    WHERE itemsno=#{itemsno} AND password=#{password}
+  </select>
+  
+    <!-- 파일 수정 -->
+  <update id="update_file" parameterType="dev.mvc.items.ItemsVO">
+    UPDATE items
+    SET file1=#{file1}, file1saved=#{file1saved}, thumb1=#{thumb1}, size1=#{size1}
+    WHERE itemsno = #{itemsno}
+  </update>
+  
+    <delete id="delete" parameterType="int">
+    DELETE FROM items
+    WHERE itemsno=#{itemsno}
+  </delete>
+  
+    <!-- 추천 -->
+  <update id="update_recom" parameterType="int">
+    UPDATE items
+    SET recom_cnt = recom_cnt + 1
+    WHERE itemsno = #{itemsno}
+  </update>
+  
+    <!-- 특정 그룹에 속한 레코드 갯수 산출 -->
+  <select id="count_by_category_no" resultType="int" parameterType="int">
+    SELECT COUNT(*) as cnt 
+    FROM items 
+    WHERE category_no=#{category_no}
+  </select>  
+
+  <!-- 특정 관리자에 속한 레코드 갯수 산출 -->
+  <select id="count_by_adminno" resultType="int" parameterType="int">
+    SELECT COUNT(*) as cnt 
+    FROM items 
+    WHERE adminno=#{adminno}
+  </select>  
+
+  <!-- 카테고리에 속한 레코드 갯수 산출 -->
+  <select id="count_by_all_category_no" resultType="int" parameterType="Map">
+    SELECT COUNT(*) as cnt 
+    FROM items 
+    WHERE category_no IN 
+    <foreach collection="catenos_list" item="codeno" separator="," open="(" close=")">
+      #{codeno}
+    </foreach>
+  </select>
+  
+  <!-- 인덱스 페이지에 출력할 추천수 내림차순 정렬 -->
+  <select id="main_list" resultType="dev.mvc.items.ItemsVO" >
+  SELECT *
+  FROM items 
+  ORDER BY recom_cnt DESC
+  </select>
+  
+  <!-- 댓글 수 증가 -->
+   <update id="increaseReplycnt" parameterType="int">
+     UPDATE items
+     SET comment_cnt = comment_cnt + 1
+     WHERE itemsno = #{itemsno}
+   </update>
+
+   <!-- 댓글 수 감소 -->
+   <update id="decreaseReplycnt" parameterType="int">
+     UPDATE items
+     SET comment_cnt = comment_cnt - 1
+     WHERE itemsno = #{itemsno}
+   </update>
+  
+</mapper> 
+
+

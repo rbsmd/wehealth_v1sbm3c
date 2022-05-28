@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ 
+<!-- dev.mvc.category.CategoryDAOInter 패키지에 등록된 interface 명시,
+      패키지명과 인터페이스명은 실제로 존재해야함,
+      Spring이 내부적으로 자동으로 interface를 구현해줌. -->
+<mapper namespace="dev.mvc.category.CategoryDAOInter">
+  <!-- 
+  insert: INSERT SQL 실행
+  id: Spring에서 호출시 사용
+  parameterType: 전달받는 데이터 객체의 타입
+  return: 등록한 레코드 갯수 리턴
+  SQL선언시 ';'은 삭제
+  #{}: ? 동일
+  #{name}: public String getName() 자동 호출
+   --> 
+  <insert id="create" parameterType="dev.mvc.category.CategoryVO">
+    INSERT INTO category(category_no, categorygrp_no, category_name, cdate, product_cnt)
+    VALUES(category_seq.nextval, #{categorygrp_no}, #{category_name}, sysdate, 0)
+  </insert> 
+  
+  <!-- 
+  전체 목록
+  레코드 갯수 만큼 CategorygrpVO 객체를 만들어 ArrayList에 저장하여 리턴,
+  List<CategoryVO> list = new ArrayList<CategoryVO>(); 
+  -->
+  <select id="list_all" resultType="dev.mvc.category.CategoryVO">
+    SELECT category_no, categorygrp_no, category_name, cdate, product_cnt
+    FROM category
+    ORDER BY category_no ASC
+  </select>
+  
+  <!-- 카테고리 그룹별 목록 -->
+  <select id="list_by_categorygrpno" resultType="dev.mvc.category.CategoryVO" parameterType="int">
+    SELECT category_no, categorygrp_no, category_name, cdate, product_cnt
+    FROM category
+    WHERE categorygrp_no = #{categorygrp_no}
+    ORDER BY category_no ASC
+  </select>
+  
+  <!-- Categorygrp + Category join, 연결 목록 -->
+  <select id="list_all_join" resultType="dev.mvc.category.Categorygrp_CategoryVO">
+    SELECT r.categorygrp_no as r_categorygrp_no, r.categorygrp_name as r_categorygrp_name,
+           c.category_no, c.categorygrp_no, c.category_name, c.cdate, c.product_cnt
+    FROM categorygrp r, category c
+    WHERE r.categorygrp_no = c.categorygrp_no
+    ORDER BY categorygrp_no ASC, category_no ASC
+  </select>
+  
+  <!-- 조회, id: read, 입력: category_no, 리턴: CategoryVO -->
+  <select id="read" resultType="dev.mvc.category.CategoryVO" parameterType="int">
+    SELECT category_no, categorygrp_no, category_name, cdate, product_cnt
+    FROM category
+    WHERE category_no=#{category_no}
+  </select>  
+  
+  <update id="update" parameterType="dev.mvc.category.CategoryVO">
+    UPDATE category
+    SET categorygrp_no=#{categorygrp_no}, category_name=#{category_name}, product_cnt=#{product_cnt}
+    WHERE category_no = #{category_no}
+  </update>
+  
+  <!-- 삭제, return: int -->
+  <delete id="delete" parameterType="int">
+    DELETE FROM category
+    WHERE category_no = #{category_no}
+  </delete> 
+
+      <!-- 특정 그룹에 속한 레코드 갯수 산출 -->
+  <select id="count_by_categorygrpno" resultType="int" parameterType="int">
+    SELECT COUNT(*) as product_cnt 
+    FROM category 
+    WHERE categorygrp_no=#{categorygrp_no}
+  </select>   
+  
+  <!-- categorygrp_no가 같은 모든 레코드 삭제 -->
+  <delete id="delete_by_categorygrpno" parameterType="int">
+    DELETE FROM category
+    WHERE categorygrp_no=#{categorygrp_no}
+  </delete>
+  
+</mapper>
